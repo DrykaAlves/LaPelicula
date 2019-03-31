@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 3,
     padding: 20,
-    marginTop: 50
+    marginTop: 50,
   },
   imput2: {
     backgroundColor: '#e2ebee',

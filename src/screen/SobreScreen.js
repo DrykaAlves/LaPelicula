@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, BackHandler } from 'react-native';
 import {LPButton} from '../component/LPButton';
 import {StackActions, NavigationActions} from 
 'react-navigation';

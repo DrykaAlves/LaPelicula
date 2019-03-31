@@ -8,8 +8,10 @@ import {
   TouchableOpacity,
   ImageBackground, 
   Picker,
+  Modal,
+  TextInput
 } from 'react-native';
-
+import { LPButton } from '../component/LPButton';
 import { openDatabase } from 'react-native-sqlite-storage';
 import { FlatList } from 'react-native-gesture-handler';
 var db = openDatabase({ name: 'lapelicula.db' });
@@ -20,7 +22,7 @@ class Filmes extends Component {
   render() {
     return (
       <View style={styles.container}>
-        
+
         <TouchableHighlight onPress={() => ''} underlayColor="blue" >
 
           <ImageBackground resizeMode="cover" source={{ uri: this.props.data.imagem }} style={{ height: 100 }}>
@@ -37,7 +39,7 @@ class Filmes extends Component {
               <Text style={{ fontSize: 20, color: '#FFFFFF', fontWeight: 'bold' }}>Cod {this.props.data.codigo} - {this.props.data.descricao}</Text>
 
               <View style={{padding: 5, backgroundColor: 'white'}}>
-                <TouchableOpacity onPress={this.props.onPress}>
+              <TouchableOpacity onPress={this.props.onClick}>
                   <View>
                     <Image source={require('../img/edit.png')} />
                   </View>
@@ -58,6 +60,8 @@ class Filmes extends Component {
 
           </ImageBackground>
         </TouchableHighlight>
+        
+
       </View>
     );
   }
@@ -86,6 +90,7 @@ export default class ListaFilmeScreen extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      modalVisible: false,
       codigo: null,
       descricao: '',
       uri: null,
@@ -94,6 +99,7 @@ export default class ListaFilmeScreen extends Component {
     };
     this.buscarFilmes();
     this.editarFilme = this.editarFilme.bind(this);
+    this.abrirCamera = this.abrirCamera.bind(this);
   }
 
   buscarFilmes(ordena) {
@@ -117,6 +123,33 @@ export default class ListaFilmeScreen extends Component {
     });
   }
 
+  abrirModal(codigo) {
+
+    // abrir janela modal
+    db.transaction(tx => {
+      tx.executeSql('SELECT * FROM filme WHERE codigo = ' + codigo, [],
+        (tx, res) => {
+          this.setState({ modalVisible: true });
+          if (res.rows.item(0).length > 0 || res.rows.item(0) != undefined ) {
+            
+            this.setState({ codigo: codigo });
+
+            this.setState({ uri: res.rows.item(0).imagem });
+            
+            this.setState({ descricao: res.rows.item(0).descricao });
+          }
+        });
+    });
+
+  }
+
+  fecharModal() {
+    this.setState({ modalVisible: false });
+  }
+
+  abrirCamera() {
+    this.props.navigation.navigate('Camera', { codigo : this.state.codigo, uri: this.state.uri});
+  }
 
   excluirFilme(codigo) {
 
@@ -143,10 +176,12 @@ export default class ListaFilmeScreen extends Component {
     
     //Editar filme
     db.transaction(tx => {
-      tx.executeSql('UPDATE filme SET descricao = ?, imagem = ? WHERE codigo = ?', [this.state.descricao, this.state.uri, this.state.codigo]);
+      tx.executeSql('UPDATE filme SET imagem = ?, descricao = ? WHERE codigo = ?', [this.state.uri, this.state.descricao, this.state.codigo]);
     })
 
+    this.fecharModal();
     this.buscarFilmes();
+
   }
 
   render() {
@@ -154,25 +189,55 @@ export default class ListaFilmeScreen extends Component {
 
       <View style={styles.container}>
 
-      <View style={styles.viewLinha}>
-        <Text style={styles.text}>Ordenar por:</Text> 
-        <Picker
-          selectedValue={this.state.ordem}
-          style={{height: 20, width: 100}}
-          onValueChange={(itemValue, itemIndex) =>
-            this.ordenaFilme(itemValue)
-          }>
-          <Picker.Item label="Descrição" value="descricao" />
-          <Picker.Item label="Código" value="codigo" />
-        </Picker>
-      </View>
+        <View style={styles.viewLinha}>
+          <Text style={styles.text}>Ordenar por:</Text> 
+          <Picker
+            selectedValue={this.state.ordem}
+            style={{height: 20, width: 100}}
+            onValueChange={(itemValue, itemIndex) =>
+              this.ordenaFilme(itemValue)
+            }>
+            <Picker.Item style={styles.picker} label="Descrição" value="descricao" />
+            <Picker.Item style={styles.picker} label="Código" value="codigo" />
+          </Picker>
+        </View>
 
-        <FlatList
-          data={this.state.filmes}
-          keyExtractor={item => item.codigo.toString()}
-          renderItem={({ item }) => <Filmes onClick={() => this.openModal(item.codigo)} onPress={() => this.excluirFilme(item.codigo)} data={item}></Filmes>}>
-          extraData={this.state}
-        ></FlatList>
+          <FlatList
+            data={this.state.filmes}
+            keyExtractor={item => item.codigo.toString()}
+            renderItem={({ item }) => <Filmes onClick={() => this.abrirModal(item.codigo)} onPress={() => this.excluirFilme(item.codigo)} data={item}></Filmes>}>
+            extraData={this.state}
+          ></FlatList>
+
+        <Modal visible={this.state.modalVisible} animationType={'slide'} onRequestClose={() => this.closeModal()}>
+        <View style={styles.containerModal}>
+          <View style={styles.janelaModal}>
+            <View style={styles.areaFoto}>
+              <View style={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+                <Image source={{ uri: this.state.uri }} style={{ backgroundColor: 'grey', justifyContent: 'center',  marginBottom: 30, alignItems: 'flex-start', width: 130, height: 130 }} />
+              </View>
+              <View style={{ width: 50, heigth: 50 }}>
+                <TouchableOpacity onPress={() => { this.abrirCamera() }}>
+                  <View>
+                    <Image source={require('../img/captura.png')} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.areaInput}>
+              <TextInput style={styles.inputText}
+                multiline={true} placeholder='Descrição'
+                onChangeText={(valor) => this.setState({ descricao: valor })}>{this.state.descricao}</TextInput>
+            </View>
+            <View style={styles.areaBotao}>
+              <View style={{ flex: 1 }}>
+                <LPButton titulo='Salvar' onPress={() => this.editarFilme()} />
+                <LPButton titulo='Cancelar' onPress={() => this.fecharModal()} />
+              </View>
+            </View>
+          </View >
+          </View>
+        </Modal>
 
 
 
@@ -187,8 +252,13 @@ export default class ListaFilmeScreen extends Component {
     this.focusListener = navigation.addListener("didFocus", () => {
       this.buscarFilmes();
     });
-  }
+    if(navigation.getParam('codigo', null) != null){
+      this.setState({ modalVisible: true });
+      this.setState({ uri: navigation.getParam('imguri', null)});
+      this.setState({ codigo: navigation.getParam('codigo', null)});
+    }
 
+  }
 
 }
 
@@ -203,6 +273,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10
   },
-
+  picker: {
+    width: 150,
+  },
+  areaFoto: {
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  inputText: {
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: 'gray'
+  },
+  areaBotao: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'center'
+  },
+  areaInput: {
+    width: '98%'
+  },
+  janelaModal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  containerModal: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '98%'
+  },
+  inputText: {
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: 'gray'
+  },
 
 });
